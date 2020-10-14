@@ -1,0 +1,383 @@
+#/usr/bin/env bash
+
+# use experimental BuildKit to enable
+# --mount at RUN in Dockerfiles, enabling
+# caching of pip packages
+#  !! Requires Docker v18.09 or later
+export DOCKER_BUILDKIT=1
+export COMPOSE_DOCKER_CLI_BUILD=1
+
+COMPOSE_FILE="docker-compose.yml"
+
+PACKAGE_MANAGER="npm"
+PACKAGE_MANGER_INSTALL_CMD="npm i"
+
+TESTING_REPO_PATH="../shadowban-testing"
+TESTING_REPO_GIT_DIR="$TESTING_REPO_PATH/.git"
+TESTING_REPO_REMOTE="../../shadowban-testing"
+#TESTING_REPO_REMOTE="https://github.com/rbeer/iwdsync-backend.git"
+
+PWA_REPO_PATH="../pwa"
+PWA_REPO_GIT_DIR="$PWA_REPO_PATH/.git"
+PWA_REPO_REMOTE="pwa"
+PWA_REPO_REMOTE="../../pwa"
+#PWA_REPO_REMOTE="https://github.com/rbeer/iwdsync.git"
+# branch to check out when cloning TESTING and PWA
+GIT_BRANCH="master"
+
+# Services to build images for
+# Essentially all services that have
+# a build: entry in the $COMPOSE_FILE
+BUILD_IMAGE_FOR="testing pwa www"
+
+# Services to run detached, after successful init
+AUX_SERVICES="db www"
+# Domain to set up (used for e.g. SSL certificate)
+# REMEMBER to point this to 127.0.0.1 in your DNS or hosts file!
+CERT_DOMAIN="shadowban.dev"
+
+# other settings
+COLOR_FG_CYAN="\e[1;49;36m"
+COLOR_FG_RED="\e[1;49;31m"
+COLOR_FG_YELLOW="\e[1;49;33m"
+COLOR_FG_GREEN="\e[1;49;32m"
+COLOR_RESET="\e[0m"
+
+function print_help {
+  echo "Usage: ./manage [init|mkcert <domain>|*] [-h]"
+  echo -e "Setup and manage shadowban.eu development docker containers\n"
+  echo -e "Depends: docker >=18.0.9, docker-compose >=1.25, mkcert\n"
+
+  if [ -n "$1" ]; then
+    echo -e "$COLOR_FG_YELLOW--- Invalid option: -$1 ---$COLOR_RESET\n"
+  else
+    echo -e "If you want to see the docker-compose help, use './manage help'\n"
+  fi
+
+  echo "  init              Clones all services, builds images,"
+  echo "                    sets up SSL, etc."
+  echo "  mkcert <domain>   Creates a new SSL key pair for <domain>"
+  echo -e "  *                 All other arguments are passed to docker-compose\n"
+  echo -e "  -h                You're looking at it.\n"
+
+  exit 1
+}
+
+while getopts ":h" opt; do
+  case $opt in
+    \?)
+      print_help $OPTARG
+      ;;
+    h)
+      print_help
+      ;;
+  esac
+done
+
+function print_init_steps {
+  echo "--- shadowban.eu docker development setup ---"
+  echo "This script will"
+  echo "  1. Clone the TESTING service ($GIT_BRANCH branch) to $TESTING_REPO_PATH"
+  echo "  2. Clone the PWA ($GIT_BRANCH branch) to $PWA_REPO_PATH"
+  echo "  3. Install PWA dependencies"
+  echo "  4. Build images ($BUILD_IMAGE_FOR)"
+  echo "  5. Create the certificate for $CERT_DOMAIN (requires mkcert)"
+  echo -e "----------------------------------------"
+  read -p "Key to continue..."
+}
+
+function print_banner_border {
+  printf '#%.0s' `seq $1`; printf '\n'
+}
+
+function print_banner {
+  local TITLE="$1 $COLOR_FG_CYAN$2$COLOR_RESET"
+  local TITLE_LENGTH=${#TITLE}
+  local DIVIDER_LENGTH=$(($TITLE_LENGTH + 4))
+
+  echo ""
+  print_banner_border $DIVIDER_LENGTH
+  echo -e "# $TITLE"
+  print_banner_border $DIVIDER_LENGTH
+}
+
+function print_error {
+  echo -e "$COLOR_FG_RED!! $1$COLOR_RESET"
+}
+
+function print_warning {
+  echo -e "${COLOR_FG_YELLOW}$1$COLOR_RESET"
+}
+
+function bail_on_fail {
+  if [ $1 -ne 0 ]; then
+    print_error "Can't proceed without $2. Please check output above for errors!"
+    exit $1
+  fi
+}
+
+###
+# 'mkcert' <DOMAIN>
+###
+function make_certificate() {
+  which mkcert &> /dev/null
+  if [ $? -ne 0 ]; then
+    echo "You need mkcert for certificate management!"
+    echo "Download from: https://github.com/FiloSottile/mkcert"
+    [ "$2" != "init" ] && exit 1
+    return
+  fi
+
+  local DOMAIN=$1
+  local OUT_PATH=./www/ssl/$DOMAIN
+
+  mkdir -p $OUT_PATH
+  bail_on_fail $? "SSL certificates"
+
+  mkcert \
+    -key-file $OUT_PATH/key.pem \
+    -cert-file $OUT_PATH/cert.pem \
+    $DOMAIN *.$DOMAIN
+  bail_on_fail $? "SSL certificates"
+}
+
+###
+# pre-run checks
+###
+
+function check_docker_daemon {
+  docker ps &>/dev/null
+  if [ $? -ne 0 ]; then
+    print_error "No usable Docker service. You might have to add yourself to the docker group: https://docs.docker.com/engine/install/linux-postinstall/"
+    exit 1
+  fi
+}
+
+function check_package_manager {
+  # preferring yarn
+  yarn -v &> /dev/null
+  local YARN_RESULT=$?
+
+  if [ $YARN_RESULT -eq 0 ]; then
+    PACKAGE_MANAGER="yarn"
+    PACKAGE_MANGER_INSTALL_CMD="yarn"
+  else
+    # at least npm is a must
+    npm -v &> /dev/null
+    local NPM_RESULT=$?
+
+    [ $NPM_RESULT -ne 0 ] && \
+      print_error "Neither 'yarn' nor 'npm' found. Is one of them in your PATH?"
+    bail_on_fail $NPM_RESULT "yarn or npm"
+  fi
+
+  echo -e "${COLOR_FG_GREEN}using $PACKAGE_MANAGER$COLOR_RESET"
+}
+
+function check_empty_parent {
+  local HAS_MISC_DIRS=0
+  local ABSOLUTE_SELF=`pwd`
+
+  for DIR_NAME in ".."/*; do
+    if [ `realpath $DIR_NAME` != $ABSOLUTE_SELF ]; then
+      HAS_MISC_DIRS=1
+      break
+    fi
+  done
+
+  if [ $HAS_MISC_DIRS -eq 1 ]; then
+    print_warning "The parent directory is not empty."
+    read -p "Proceed with non-empty parent? [y/N] " USE_NON_EMPTY_PARENT
+    if [ "$USE_NON_EMPTY_PARENT" != "y" ]; then exit 0; fi
+  else
+    echo -e "${COLOR_FG_GREEN}OK$COLOR_RESET"
+  fi
+}
+
+function check_version {
+  local TESTED_BINARY=$1
+
+  local VERSION=$2
+  local VERSION_MAJOR=$((`echo $VERSION | cut -d '.' -f1`))
+  local VERSION_MINOR=$((`echo $VERSION | cut -d '.' -f2`))
+
+  local MIN_VERSION_MAJOR=$3
+  local MIN_VERSION_MINOR=$4
+  local MIN_VERSION="$MIN_VERSION_MAJOR.$MIN_VERSION_MINOR"
+
+  local CHECK_FAILED=0
+
+  echo $TESTED_BINARY
+  echo "  Required: $MIN_VERSION"
+  echo -ne "  Installed: "
+
+  [ $VERSION_MAJOR -lt $MIN_VERSION_MAJOR ] && \
+    CHECK_FAILED=1
+
+  [ $VERSION_MAJOR -eq $MIN_VERSION_MAJOR ] && \
+    [ $VERSION_MINOR -lt $MIN_VERSION_MINOR ] && \
+      CHECK_FAILED=1
+
+  if [ $CHECK_FAILED -eq 1 ]; then
+    echo -e "$COLOR_FG_RED$VERSION$COLOR_RESET"
+    print_error "Please upgrade to or install $TESTED_BINARY v$MIN_VERSION or later!"
+    exit 1
+  fi
+
+  echo -e "$COLOR_FG_GREEN$VERSION$COLOR_RESET"
+}
+
+function check_docker_compose_version {
+  local MIN_VERSION_MAJOR=1
+  local MIN_VERSION_MINOR=25
+  local VERSION=`docker-compose version --short`
+
+  check_version \
+    'docker-compose' \
+    $VERSION \
+    $MIN_VERSION_MAJOR \
+    $MIN_VERSION_MINOR
+}
+
+function check_docker_version {
+  local MIN_VERSION_MAJOR=18
+  local MIN_VERSION_MINOR=09
+  local VERSION=`docker version --format '{{.Server.Version}}'`
+
+  check_version \
+    'docker-compose' \
+    $VERSION \
+    $MIN_VERSION_MAJOR \
+    $MIN_VERSION_MINOR
+}
+
+###
+# Clone the testing service
+###
+function init_testing_repo {
+  local GIT_DIR_PATH_ABSOLUTE=`realpath $TESTING_REPO_GIT_DIR 2> /dev/null`
+  GIT_DIR=$GIT_DIR_PATH_ABSOLUTE git branch &> /dev/null
+  if [[ $? == 0 && $GIT_DIR_PATH_ABSOLUTE != "" ]]; then
+    echo "TESTING repo already present at $GIT_DIR_PATH_ABSOLUTE"
+  else
+    git clone --single-branch -b $GIT_BRANCH $TESTING_REPO_REMOTE $TESTING_REPO_PATH
+  fi
+}
+
+###
+# Clone the PWA service
+###
+function init_pwa_repo {
+  local GIT_DIR_PATH_ABSOLUTE=`realpath $PWA_REPO_GIT_DIR 2> /dev/null`
+  GIT_DIR=$GIT_DIR_PATH_ABSOLUTE git branch &> /dev/null
+  if [[ $? == 0 && $GIT_DIR_PATH_ABSOLUTE != "" ]]; then
+    echo "PWA repo already present at $GIT_DIR_PATH_ABSOLUTE"
+  else
+    git clone --single-branch -b $GIT_BRANCH $PWA_REPO_REMOTE $PWA_REPO_PATH
+  fi
+}
+
+###
+# Install PWA dependencies
+###
+function pwa_install {
+  (cd $PWA_REPO_PATH; $PACKAGE_MANGER_INSTALL_CMD)
+}
+
+###
+# Build the images for $BUILD_IMAGE_FOR
+###
+function build_images {
+  docker-compose -f $COMPOSE_FILE build $BUILD_IMAGE_FOR
+  bail_on_fail $? "images"
+}
+
+###
+# Bring up services detached
+###
+function up_d_services {
+  docker-compose -f $COMPOSE_FILE up -d $1
+  bail_on_fail $? "auxiliary services"
+}
+
+###
+# shadowban-eu ./manage
+###
+check_docker_daemon
+
+case "$1" in
+  "mkcert")
+    [ "$2" == "" ] && echo "Please provide a domain name for the certificate!" && exit 1
+    make_certificate $2
+    exit 0
+    ;;
+  "init")
+    print_init_steps
+
+    print_banner "?" "Checking parent directory"
+    check_empty_parent
+
+    print_banner "?" "Checking Docker versions"
+    check_docker_version
+    check_docker_compose_version
+
+    print_banner "?" "Checking for YARN or NPM"
+    check_package_manager
+
+    print_banner "1" "Cloning TESTING"
+    init_testing_repo
+
+    print_banner "2" "Cloning PWA"
+    init_pwa_repo
+
+    print_banner "3" "Installing PWA dependencies"
+    pwa_install
+
+    print_banner "4" "Building images"
+    build_images
+
+    print_banner "5" "Creating SSL certificate for $CERT_DOMAIN"
+    make_certificate $CERT_DOMAIN "init"
+
+    print_banner "~" "Bringing up auxiliary services ($AUX_SERVICES)"
+    up_d_services "$AUX_SERVICES"
+
+    print_banner "\\\0/" "${COLOR_FG_GREEN}Done"
+    echo -e "\nRemember to point $CERT_DOMAIN to 127.0.0.1 in your DNS or hosts file!\n"
+    echo "Use './manage up [testing|pwa]' to start the shadowban-testing dev server."
+    echo "Then './manage up pwa' to start the React dev server; https://shadowban.dev/\n"
+    echo "Both dev servers reload on file changes in their respective repository:"
+    echo "  testing: $TESTING_REPO_PATH"
+    echo "  pwa: $PWA_REPO_PATH"
+    exit 0
+    ;;
+  "down")
+    echo "The 'down' command stops and destroys all containers. THIS WILL WIPE YOUR DATABASE."
+    echo "If you just want to stop the services, abort here and use ./manage stop <services>!"
+    read -p "Proceed with destroying all containers? [y/N] " CONTINUE_DOWN
+    if [ "$CONTINUE_DOWN" != "y" ]; then exit 0; fi
+    ;;
+  "dev")
+    FOREGROUND_SERVICE="$2"
+    if [ "$FOREGROUND_SERVICE" == "" ]; then
+      print_warning "No foreground service specified.\nPlease choose 'testing' or 'pwa' to run in foreground (no -d)"
+      read -p "[testing|pwa]: " FOREGROUND_SERVICE
+    fi
+
+    if [ "$FOREGROUND_SERVICE" == "pwa" ]; then
+      up_d_services "$AUX_SERVICES testing"
+    elif [ "$FOREGROUND_SERVICE" == "testing" ]; then
+      up_d_services "$AUX_SERVICES pwa"
+    else
+      bail_on_fail 1 "foreground service"
+    fi
+
+    docker-compose -f $COMPOSE_FILE up $FOREGROUND_SERVICE
+    exit 0
+    ;;
+  "")
+   print_help $1
+   ;;
+esac
+
+docker-compose -f $COMPOSE_FILE $@

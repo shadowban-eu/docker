@@ -1,0 +1,68 @@
+version: '3.5'
+services:
+  db:
+    image: mongo
+    container_name: shadowban-db
+    hostname: shadowban-db
+    ports:
+      - "127.0.0.1:27017:27017"
+    env_file:
+      - mongod.env
+    networks:
+      - common
+
+  www:
+    build: www/.
+    container_name: shadowban-www
+    hostname: shadowban-www
+    ports:
+      - "127.0.0.1:80:80"
+      - "127.0.0.1:443:443"
+    volumes:
+      # main config
+      - ./www/nginx.conf:/etc/nginx/nginx.conf
+      # site configs
+      - ./www/sites-enabled:/etc/nginx/sites-enabled
+      # document roots
+      - ./sites:/var/sites
+      # SSL certificates
+      - ./www/ssl:/etc/nginx/ssl
+      # log files
+      - ./logs/nginx:/var/log/nginx
+    networks:
+      - common
+
+  testing:
+    build: ../shadowban-testing/.
+    container_name: shadowban-testing
+    hostname: shadowban-testing
+    command: ./docker-entry.sh
+    stdin_open: true
+    expose:
+      - "4040"
+    volumes:
+      - ../shadowban-testing:/app
+      - ./logs/shadowban-testing:/app/logs
+    env_file:
+      - ../shadowban-testing/.env.docker
+    networks:
+      - common
+
+  pwa:
+    build: ../pwa/.
+    container_name: shadowban-pwa
+    hostname: shadowban-pwa
+    command: yarn start
+    stdin_open: true
+    expose:
+      - "3000"
+    volumes:
+      - ../pwa:/app
+    env_file:
+      - ../pwa/.env.docker
+    networks:
+      - common
+
+networks:
+  common:
+    name: shadowban-dev_common

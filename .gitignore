@@ -1,0 +1,13 @@
+db/data/**
+!db/data/.keep
+
+cache/**
+!cache/.keep
+
+redis/**
+!redis/.keep
+
+logs/**
+!logs/nginx/.keep
+
+www/ssl/**
