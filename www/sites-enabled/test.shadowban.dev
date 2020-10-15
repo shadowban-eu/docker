@@ -1,11 +1,9 @@
 server {
-  set $DOMAIN 'shadowban.dev';
-	set $PWA_ADDRESS 'shadowban-pwa';
-	set $PWA_PORT '3000';
+  set $DOMAIN 'test.shadowban.dev';
   set $SHADOWBAN_TESTING_ADDRESS 'shadowban-testing';
   set $SHADOWBAN_TESTING_PORT '4040';
 
-  server_name shadowban.dev www.shadowban.dev tester.shadowban.dev www.tester.shadowban.dev;
+  server_name test.shadowban.dev;
   listen 80;
   listen 443 ssl;
   ssl_certificate ssl/shadowban.dev/cert.pem;
@@ -18,14 +16,11 @@ server {
 	if ($http_x_forwarded_proto ~* ^http$) {
 		return 302 https://$DOMAIN$request_uri;
 	}
-  if ($http_host ~* (^((www\.)?tester|www).shadowban.eu$)) {
-    return 302 https://$DOMAIN$request_uri;
-  }
 
   location / {
     resolver 127.0.0.11; # fixed docker DNS
 
-		proxy_pass http://$PWA_ADDRESS:$PWA_PORT$request_uri;
+		proxy_pass http://$SHADOWBAN_TESTING_ADDRESS:$SHADOWBAN_TESTING_PORT$request_uri;
     proxy_http_version  1.1;
     proxy_cache_bypass  $http_upgrade;
 
