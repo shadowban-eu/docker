@@ -7,7 +7,7 @@ services:
     ports:
       - "127.0.0.1:27017:27017"
     env_file:
-      - mongod.env
+      - ./env/mongod.env
     networks:
       - common
 
@@ -44,7 +44,7 @@ services:
       - ../shadowban-testing:/app
       - ./logs/shadowban-testing:/app/logs
     env_file:
-      - ../shadowban-testing/.env.docker
+      - ./env/testing.env
     networks:
       - common
 
@@ -59,7 +59,7 @@ services:
     volumes:
       - ../pwa:/app
     env_file:
-      - ../pwa/.env.docker
+      - ./env/pwa.env
     networks:
       - common
 

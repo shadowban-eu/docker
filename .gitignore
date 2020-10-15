@@ -11,3 +11,5 @@ logs/**
 !logs/nginx/.keep
 
 www/ssl/**
+
+env/
