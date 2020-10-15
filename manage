@@ -373,6 +373,7 @@ case "$1" in
     fi
 
     docker-compose -f $COMPOSE_FILE up $FOREGROUND_SERVICE
+    docker-compose -f $COMPOSE_FILE stop $AUX_SERVICES
     exit 0
     ;;
   "")
