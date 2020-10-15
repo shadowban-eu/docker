@@ -2,8 +2,6 @@ server {
   set $DOMAIN 'shadowban.dev';
 	set $PWA_ADDRESS 'shadowban-pwa';
 	set $PWA_PORT '3000';
-  set $SHADOWBAN_TESTING_ADDRESS 'shadowban-testing';
-  set $SHADOWBAN_TESTING_PORT '4040';
 
   server_name shadowban.dev www.shadowban.dev tester.shadowban.dev www.tester.shadowban.dev;
   listen 80;
