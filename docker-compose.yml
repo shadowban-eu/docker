@@ -45,6 +45,27 @@ services:
       - ./logs/shadowban-testing:/app/logs
     env_file:
       - ./env/testing.env
+    depends_on:
+      - db
+      - www
+    networks:
+      - common
+
+  timeline-termination:
+    build: ../timeline-termination/.
+    container_name: shadowban-timeline-termination
+    hostname: shadowban-timeline-termination
+    command: yarn dev
+    stdin_open: true
+    expose:
+      - "3300"
+    volumes:
+      - ../timeline-termination:/app
+    env_file:
+      - ./env/timeline-termination.env
+    depends_on:
+      - db
+      - www
     networks:
       - common
 
@@ -60,6 +81,8 @@ services:
       - ../pwa:/app
     env_file:
       - ./env/pwa.env
+    depends_on:
+      - www
     networks:
       - common
 
