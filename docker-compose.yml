@@ -61,6 +61,7 @@ services:
       - "3300"
     volumes:
       - ../timeline-termination:/app
+      - ./logs/timeline-termination:/app/logs
     env_file:
       - ./env/timeline-termination.env
     depends_on:

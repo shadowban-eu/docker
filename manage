@@ -14,13 +14,18 @@ PACKAGE_MANGER_INSTALL_CMD="npm i"
 
 TESTING_REPO_PATH="../shadowban-testing"
 TESTING_REPO_GIT_DIR="$TESTING_REPO_PATH/.git"
-TESTING_REPO_REMOTE="../../shadowban-testing"
+TESTING_REPO_REMOTE="git.local:shadowban.eu/shadowban-testing.git"
 #TESTING_REPO_REMOTE="https://github.com/rbeer/iwdsync-backend.git"
+
+TIMELINE_TERMINATION_REPO_PATH="../timeline-termination"
+TIMELINE_TERMINATION_REPO_GIT_DIR="$TIMELINE_TERMINATION_REPO_PATH/.git"
+TIMELINE_TERMINATION_REPO_REMOTE="git.local:shadowban.eu/timeline-termination.git"
+#TIMELINE_TERMINATION_REPO_REMOTE="https://github.com/rbeer/iwdsync-backend.git"
 
 PWA_REPO_PATH="../pwa"
 PWA_REPO_GIT_DIR="$PWA_REPO_PATH/.git"
 PWA_REPO_REMOTE="pwa"
-PWA_REPO_REMOTE="../../pwa"
+PWA_REPO_REMOTE="git.local:shadowban.eu/pwa.git"
 #PWA_REPO_REMOTE="https://github.com/rbeer/iwdsync.git"
 # branch to check out when cloning TESTING and PWA
 GIT_BRANCH="master"
@@ -28,7 +33,7 @@ GIT_BRANCH="master"
 # Services to build images for
 # Essentially all services that have
 # a build: entry in the $COMPOSE_FILE
-BUILD_IMAGE_FOR="testing pwa www"
+BUILD_IMAGE_FOR="testing timeline-termination pwa www"
 
 # Services to run detached, after successful init
 AUX_SERVICES="db www"
@@ -56,11 +61,12 @@ function print_help {
 
   echo "  init              Clones all services, builds images,"
   echo "                    sets up SSL, etc."
+  echo "  dev [service]     Run [service] in foreground and all other services detached."
   echo "  mkcert <domain>   Creates a new SSL key pair for <domain>"
   echo -e "  *                 All other arguments are passed to docker-compose\n"
   echo -e "  -h                You're looking at it.\n"
 
-  exit 1
+  exit
 }
 
 while getopts ":h" opt; do
@@ -78,8 +84,8 @@ function print_init_steps {
   echo "--- shadowban.eu docker development setup ---"
   echo "This script will"
   echo "  1. Clone the TESTING service ($GIT_BRANCH branch) to $TESTING_REPO_PATH"
-  echo "  2. Clone the PWA ($GIT_BRANCH branch) to $PWA_REPO_PATH"
-  echo "  3. Install PWA dependencies"
+  echo "  2. Install the TIMELINE_TERMINATION service ($GIT_BRANCH branch) to $TIMELINE_TERMINATION_REPO_PATH"
+  echo "  3. Install the PWA ($GIT_BRANCH branch) to $PWA_REPO_PATH"
   echo "  4. Build images ($BUILD_IMAGE_FOR)"
   echo "  5. Create the certificate for $CERT_DOMAIN (requires mkcert)"
   echo -e "----------------------------------------"
@@ -104,14 +110,16 @@ function print_banner {
 function print_error {
   echo -e "$COLOR_FG_RED!! $1$COLOR_RESET"
 }
-
 function print_warning {
   echo -e "${COLOR_FG_YELLOW}$1$COLOR_RESET"
+}
+function print_success {
+  echo -e "${COLOR_FG_GREEN}$1$COLOR_RESET"
 }
 
 function bail_on_fail {
   if [ $1 -ne 0 ]; then
-    print_error "Can't proceed without $2. Please check output above for errors!"
+    print_error "Can't proceed without $2. Please check above output for errors!"
     exit $1
   fi
 }
@@ -254,34 +262,27 @@ function check_docker_version {
 ###
 # Clone the testing service
 ###
-function init_testing_repo {
-  local GIT_DIR_PATH_ABSOLUTE=`realpath $TESTING_REPO_GIT_DIR 2> /dev/null`
-  GIT_DIR=$GIT_DIR_PATH_ABSOLUTE git branch &> /dev/null
+function init_repo {
+  local REPO_DIR=$1
+  local REPO_REMOTE=$2
+  local GIT_DIR_PATH_ABSOLUTE=`realpath $REPO_DIR 2> /dev/null`
+
+  git --git-dir=$GIT_DIR_PATH_ABSOLUTE/.git --work-tree=$GIT_DIR_PATH_ABSOLUTE branch &> /dev/null
   if [[ $? == 0 && $GIT_DIR_PATH_ABSOLUTE != "" ]]; then
-    echo "TESTING repo already present at $GIT_DIR_PATH_ABSOLUTE"
+    print_success "TESTING repo already present at $GIT_DIR_PATH_ABSOLUTE"
+    git --git-dir=$GIT_DIR_PATH_ABSOLUTE/.git --work-tree=$GIT_DIR_PATH_ABSOLUTE checkout $GIT_BRANCH
   else
-    git clone --single-branch -b $GIT_BRANCH $TESTING_REPO_REMOTE $TESTING_REPO_PATH
+    git clone --single-branch -b $GIT_BRANCH $REPO_REMOTE $GIT_DIR_PATH_ABSOLUTE
+    bail_on_fail $? "$GIT_DIR_PATH_ABSOLUTE"
   fi
 }
 
 ###
-# Clone the PWA service
+# Install Node dependencies
 ###
-function init_pwa_repo {
-  local GIT_DIR_PATH_ABSOLUTE=`realpath $PWA_REPO_GIT_DIR 2> /dev/null`
-  GIT_DIR=$GIT_DIR_PATH_ABSOLUTE git branch &> /dev/null
-  if [[ $? == 0 && $GIT_DIR_PATH_ABSOLUTE != "" ]]; then
-    echo "PWA repo already present at $GIT_DIR_PATH_ABSOLUTE"
-  else
-    git clone --single-branch -b $GIT_BRANCH $PWA_REPO_REMOTE $PWA_REPO_PATH
-  fi
-}
-
-###
-# Install PWA dependencies
-###
-function pwa_install {
-  (cd $PWA_REPO_PATH; $PACKAGE_MANGER_INSTALL_CMD)
+function install_node_packages {
+  (cd $1; $PACKAGE_MANGER_INSTALL_CMD)
+  bail_on_fail $? "dependencies for $1"
 }
 
 ###
@@ -325,13 +326,15 @@ case "$1" in
     check_package_manager
 
     print_banner "1" "Cloning TESTING"
-    init_testing_repo
+    init_repo $TESTING_REPO_PATH $TESTING_REPO_REMOTE
 
-    print_banner "2" "Cloning PWA"
-    init_pwa_repo
+    print_banner "2" "Installing TIMELINE_TERMINATION"
+    init_repo $TIMELINE_TERMINATION_REPO_PATH $TIMELINE_TERMINATION_REPO_REMOTE
+    install_node_packages $TIMELINE_TERMINATION_REPO_PATH
 
-    print_banner "3" "Installing PWA dependencies"
-    pwa_install
+    print_banner "3" "Installing PWA"
+    init_repo $PWA_REPO_PATH $PWA_REPO_REMOTE
+    install_node_packages $PWA_REPO_PATH
 
     print_banner "4" "Building images"
     build_images
@@ -339,16 +342,17 @@ case "$1" in
     print_banner "5" "Creating SSL certificate for $CERT_DOMAIN"
     make_certificate $CERT_DOMAIN "init"
 
-    print_banner "~" "Bringing up auxiliary services ($AUX_SERVICES)"
-    up_d_services "$AUX_SERVICES"
+    #print_banner "~" "Bringing up auxiliary services ($AUX_SERVICES)"
+    #up_d_services "$AUX_SERVICES"
 
     print_banner "\\\0/" "${COLOR_FG_GREEN}Done"
     echo -e "\nRemember to point $CERT_DOMAIN to 127.0.0.1 in your DNS or hosts file!\n"
-    echo "Use './manage up [testing|pwa]' to start the shadowban-testing dev server."
-    echo "Then './manage up pwa' to start the React dev server; https://shadowban.dev/\n"
+    echo -e "Use './manage up [testing|pwa]' to start the shadowban-testing dev server."
+    echo -e "Then './manage up pwa' to start the React dev server; https://shadowban.dev/\n"
     echo "Both dev servers reload on file changes in their respective repository:"
-    echo "  testing: $TESTING_REPO_PATH"
     echo "  pwa: $PWA_REPO_PATH"
+    echo "  timeline-termination: $TIMELINE_TERMINATION_REPO_PATH"
+    echo "  testing: $TESTING_REPO_PATH"
     exit 0
     ;;
   "down")
