@@ -2,6 +2,8 @@ server {
   set $DOMAIN 'test.shadowban.dev';
   set $SHADOWBAN_TESTING_ADDRESS 'shadowban-testing';
   set $SHADOWBAN_TESTING_PORT '4040';
+  set $TIMELINE_TERMINATION_ADDRESS 'shadowban-timeline-termination';
+  set $TIMELINE_TERMINATION_PORT '3300';
 
   server_name test.shadowban.dev;
   listen 80;
@@ -17,10 +19,15 @@ server {
 		return 302 https://$DOMAIN$request_uri;
 	}
 
-  location / {
+  # Deny .htaccess
+  location ~ /\.ht {
+    deny all;
+  }
+
+	location ~* "^/resurrect/(\d*)/?$" {
     resolver 127.0.0.11; # fixed docker DNS
 
-		proxy_pass http://$SHADOWBAN_TESTING_ADDRESS:$SHADOWBAN_TESTING_PORT$request_uri;
+		proxy_pass http://$TIMELINE_TERMINATION_ADDRESS:$TIMELINE_TERMINATION_PORT/v1/test/$1;
     proxy_http_version  1.1;
     proxy_cache_bypass  $http_upgrade;
 
@@ -32,13 +39,22 @@ server {
     proxy_set_header X-Forwarded-Proto $scheme;
     proxy_set_header X-Forwarded-Host  $host;
     proxy_set_header X-Forwarded-Port  $server_port;
+	}
 
-    #rewrite "^(\/(?:@|%40)?)([A-Za-z0-9_]{1,15})$" / last;
-    #try_files $uri $uri/ =404;
-  }
+  location ~* "^/user/([A-Za-z0-9_]{1,15})$" {
+    resolver 127.0.0.11; # fixed docker DNS
 
-  # Deny .htaccess
-  location ~ /\.ht {
-    deny all;
+		proxy_pass http://$SHADOWBAN_TESTING_ADDRESS:$SHADOWBAN_TESTING_PORT/$1;
+    proxy_http_version  1.1;
+    proxy_cache_bypass  $http_upgrade;
+
+    proxy_set_header Upgrade           $http_upgrade;
+    proxy_set_header Connection        "upgrade";
+    proxy_set_header Host              $host;
+    proxy_set_header X-Real-IP         $remote_addr;
+    proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-Host  $host;
+    proxy_set_header X-Forwarded-Port  $server_port;
   }
 }
