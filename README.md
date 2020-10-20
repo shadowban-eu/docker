@@ -3,6 +3,8 @@
 ***Quickstart:***
 *[Install mkcert](https://github.com/FiloSottile/mkcert#installation), [node.js](https://nodejs.org/en/download/) and run `./manage init`*
 
+Windows users, please install a bash shell! The emulation of [git for windows](https://gitforwindows.org/) works fine.
+
 ---
 The compose file `./docker-compose.yml` creates a
 network (`shadowban-dev_common`) with mongo (`db`),
@@ -23,31 +25,49 @@ nginx (`www`), frontend (`pwa`) and shadowban-testing (`testing`) containers.
 | **shadowban-pwa** |  |
 | image | ../pwa/. (node:slim) |
 | config | ./env/pwa.env |
+| **shadowban-timeline-termination**| |
+| image | ../timeline-termination/. (node:slime) |
+| config | ./env/timeline-termination.env |
 
 ## manage
-`./manage init` runs all steps necessary to set up the docker environment.
+```
+Usage: ./manage [init|mkcert <domain>|*] [-b <branch>] [-d <uri>] [-h]
+Setup and manage shadowban.eu development docker containers
 
-`./manage dev [testing|pwa]` runs the specified service in foreground and all others detached.
+Depends:
+  docker >=18.0.9, docker-compose >=1.25, [mkcert]
 
-Use `./manage mkcert <DOMAIN>` to generate a SSL certificate, stored in `./www/ssl/<DOMAN>`.
-This certificate will be valid for `<DOMAIN>` and `*.<DOMAIN>`.
+Managing commands:
+  init              Clones all services, builds images,
+                    sets up SSL, etc.
+  dev <service>     Run <service> in foreground and all other services detached.
+  mkcert <domain>   Creates a new SSL cert/key pair for <domain>
 
-All other parameters are forwarded to `docker-compose -f ./docker-compose.yml`
+Managing options:
+  -g <uri>          Base URI for repositories to clone from
+                    e.g. https://github.com/shadowban-eu/
+  -b <branch>       Branch name to check out; default: master
+  -h                You're looking at it.
+
+Other:
+  *                 All other arguments are passed to docker-compose
+                    e.g. './manage help' to see the docker-compose help
+```
 
 ```bash
 # Bring up containers
 # [-d] detach from your terminal process
-./manage up [-d] (db|pwa|testing|www)
+./manage up [-d] (db|pwa|testing|timeline-termination|www)
 
 # Stop a service
-./manage stop (db|pwa|testing|www)
+./manage stop (db|pwa|testing|timeline-termination|www)
 
 # Bring all services down (stop and destroy)
 # This will wipe your DB!
 ./manage down
 
 # Execute command inside of running container
-./manage exec (db|pwa|testing|www) <CMD>
+./manage exec (db|pwa|testing|timeline-termination|www) <CMD>
 # e.g. reload nginx configs
 ./manage exec www nginx -s reload
 ```
@@ -84,7 +104,7 @@ to add new domains.
 
 *Suppose you want the PWA to respond on `shadow-ban.dev`.*
 
-Start with generating the SSL certificate and key
+Start by generating the SSL certificate and key
 
 ```bash
 ./manage mkcert shadow-ban.dev
@@ -112,9 +132,7 @@ and change the paths to `ssl_certificate` and `_key`, as well as `$DOMAIN` and `
 ```nginx
   server {
     set $DOMAIN 'shadow-ban.dev';
-    # dont't change this!
-    # those are name and port of the frontend container
-    # on the internal docker network
+    # name and port of the frontend container
     set $PWA_ADDRESS 'shadowban-pwa';
     set $PWA_PORT '3000';
 
