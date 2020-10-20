@@ -376,10 +376,15 @@ case "$COMMAND" in
     exit 0
     ;;
   "down")
-    echo "The 'down' command stops and destroys all containers. THIS WILL WIPE YOUR DATABASE."
-    echo "If you just want to stop the services, abort here and use ./manage stop <services>!"
+    echo "The 'down' command stops and destroys ALL containers. THIS WILL WIPE YOUR DATABASE."
+    echo "If you just want to stop services, abort here and use ./manage stop <services>!"
     read -p "Proceed with destroying all containers? [y/N] " CONTINUE_DOWN
-    [ "$CONTINUE_DOWN" != "y" ] && exit 0
+    if [ "$CONTINUE_DOWN" == "y" ]; then
+      docker-compose -f $COMPOSE_FILE down
+      exit 0
+    else
+      exit 130 # "terminated by C-c"
+    fi
     ;;
   "dev")
     FOREGROUND_SERVICE="$2"
