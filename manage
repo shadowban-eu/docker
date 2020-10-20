@@ -45,8 +45,20 @@ COLOR_FG_YELLOW="\e[1;49;33m"
 COLOR_FG_GREEN="\e[1;49;32m"
 COLOR_RESET="\e[0m"
 
+function read_env {
+  while IFS='=' read -r name value; do
+     if [ -z "$value" -o -z "$name" ]; then
+         echo "Error - unparsable line!" >&2
+         exit 1
+     fi
+
+     declare -xrg "$name=$value"
+
+  done < $1
+}
+
 function print_help {
-  echo "Usage: ./manage [init|mkcert <domain>|*] [-b <branch>] [-d <uri>] [-h]"
+  echo "Usage: ./manage [db|dev <service>|init|mkcert <domain>|*] [-b <branch>] [-d <uri>] [-h]"
   echo -e "Setup and manage shadowban.eu development docker containers\n"
   echo "Depends:"
   echo -e "  docker >=18.0.9, docker-compose >=1.25, [mkcert]\n"
@@ -58,6 +70,7 @@ function print_help {
   echo "Managing commands:"
   echo "  init              Clones all services, builds images,"
   echo "                    sets up SSL, etc."
+  echo "  db                Open authenticated shell in db container"
   echo "  dev <service>     Run <service> in foreground and all other services detached."
   echo -e "  mkcert <domain>   Creates a new SSL cert/key pair for <domain>\n"
   echo "Managing options:"
@@ -72,7 +85,7 @@ function print_help {
   exit
 }
 
-if [[ $1 =~ ^(dev|down|init|mkcert)$ ]]; then
+if [[ $1 =~ ^(db|dev|down|init|mkcert)$ ]]; then
   echo "Command: $1"
   COMMAND=$1
   shift 1
@@ -388,6 +401,15 @@ case "$COMMAND" in
     else
       exit 130 # "terminated by C-c"
     fi
+    ;;
+  "db")
+    read_env ./env/mongod.env
+    docker-compose -f $COMPOSE_FILE exec \
+      db mongo $MONGO_DB \
+      -u $MONGO_INITDB_ROOT_USERNAME \
+      -p $MONGO_INITDB_ROOT_PASSWORD \
+      --authenticationDatabase admin
+    exit 0
     ;;
   "dev")
     FOREGROUND_SERVICE="$2"
