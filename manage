@@ -78,19 +78,18 @@ if [[ $1 =~ ^(dev|down|init|mkcert)$ ]]; then
   shift 1
 fi
 
-while getopts "bhg:g" opt; do
+while getopts "b:hg:g" opt; do
   case $opt in
     g)
-      echo $COMMAND
       [ "$COMMAND" == "" ] && print_help "g must be used in combination with a managing command"
       [ "$OPTARG" == "" ] && print_help "g needs a <uri> paramter"
-      echo "Option: -g $OPTARG"
+      echo "Option: -g REPO_REMOTE_BASE=$OPTARG"
       REPO_REMOTE_BASE="$OPTARG"
       ;;
     b)
       [ "$COMMAND" == "" ] && print_help "b must be used in combination with a managing command"
       [ "$OPTARG" == "" ] && print_help "b needs a <branch> parameter"
-      echo "Option: -b $OPTARG"
+      echo "Option: -b GIT_BRANCH=$OPTARG"
       GIT_BRANCH="$OPTARG"
       ;;
     h)
