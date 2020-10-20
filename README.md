@@ -19,15 +19,18 @@ nginx (`www`), frontend (`pwa`) and shadowban-testing (`testing`) containers.
 | image | www/. (nginx:alpine) |
 | ports | 127.0.0.1:80:80 (http)<br>127.0.0.1:443:443 (https) |
 | config | www/nginx.conf<br>www/sites-/\*<br>www/ssl/\*\*/(key\|cert).pem |
+| logs | ./logs/nginx/ |
 | **shadowban-testing** |  |
 | image | ../shadowban-testing/. (python:3.5.7-slim-buster) |
 | config | ./env/testing.env |
+| logs | ./logs/shadowban-testing/ |
 | **shadowban-pwa** |  |
 | image | ../pwa/. (node:slim) |
 | config | ./env/pwa.env |
 | **shadowban-timeline-termination**| |
 | image | ../timeline-termination/. (node:slime) |
 | config | ./env/timeline-termination.env |
+| logs | ./logs/timeline-termination/ |
 
 ## manage
 ```
