@@ -46,7 +46,7 @@ COLOR_FG_GREEN="\e[1;49;32m"
 COLOR_RESET="\e[0m"
 
 function print_help {
-  echo "Usage: ./manage [init|mkcert <domain>|*] [-d <uri>] [-h]"
+  echo "Usage: ./manage [init|mkcert <domain>|*] [-b <branch>] [-d <uri>] [-h]"
   echo -e "Setup and manage shadowban.eu development docker containers\n"
   echo "Depends:"
   echo -e "  docker >=18.0.9, docker-compose >=1.25, [mkcert]\n"
@@ -59,29 +59,39 @@ function print_help {
   echo "  init              Clones all services, builds images,"
   echo "                    sets up SSL, etc."
   echo "  dev <service>     Run <service> in foreground and all other services detached."
-  echo -e "  mkcert <domain>   Creates a new SSL key pair for <domain>\n"
+  echo -e "  mkcert <domain>   Creates a new SSL cert/key pair for <domain>\n"
   echo "Managing options:"
   echo "  -g <uri>          Base URI for repositories to clone from"
   echo "                    e.g. https://github.com/shadowban-eu/"
+  echo "  -b <branch>       Branch name to check out; default: master"
   echo -e "  -h                You're looking at it.\n"
+  echo "Other:"
   echo "  *                 All other arguments are passed to docker-compose"
   echo -e "                    e.g. './manage help' to see the docker-compose help\n"
 
   exit
 }
 
-if [[ $1 =~ ^(dev|down|init|mkcert|-h)$ ]]; then
+if [[ $1 =~ ^(dev|down|init|mkcert)$ ]]; then
   echo "Command: $1"
   COMMAND=$1
   shift 1
 fi
 
-while getopts "g:gh" opt; do
+while getopts "bhg:g" opt; do
   case $opt in
     g)
+      echo $COMMAND
+      [ "$COMMAND" == "" ] && print_help "g must be used in combination with a managing command"
       [ "$OPTARG" == "" ] && print_help "g needs a <uri> paramter"
       echo "Option: -g $OPTARG"
       REPO_REMOTE_BASE="$OPTARG"
+      ;;
+    b)
+      [ "$COMMAND" == "" ] && print_help "b must be used in combination with a managing command"
+      [ "$OPTARG" == "" ] && print_help "b needs a <branch> parameter"
+      echo "Option: -b $OPTARG"
+      GIT_BRANCH="$OPTARG"
       ;;
     h)
       print_help
@@ -400,5 +410,7 @@ case "$COMMAND" in
     exit 0
     ;;
 esac
+
+echo "Running docker-compose with '$@'"
 
 docker-compose -f $COMPOSE_FILE $@
