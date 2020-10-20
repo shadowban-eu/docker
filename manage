@@ -46,7 +46,7 @@ COLOR_FG_GREEN="\e[1;49;32m"
 COLOR_RESET="\e[0m"
 
 function print_help {
-  echo "Usage: ./manage [init|mkcert <domain>|*] [-h]"
+  echo "Usage: ./manage [init|mkcert <domain>|*] [-d <uri>] [-h]"
   echo -e "Setup and manage shadowban.eu development docker containers\n"
   echo "Depends:"
   echo -e "  docker >=18.0.9, docker-compose >=1.25, [mkcert]\n"
@@ -76,11 +76,8 @@ if [[ $1 =~ ^(dev|down|init|mkcert|-h)$ ]]; then
   shift 1
 fi
 
-while getopts ":g:gh" opt $@; do
+while getopts "g:gh" opt; do
   case $opt in
-    \?)
-      print_help $OPTARG
-      ;;
     g)
       [ "$OPTARG" == "" ] && print_help "g needs a <uri> paramter"
       echo "Option: -g $OPTARG"
@@ -402,9 +399,6 @@ case "$COMMAND" in
     docker-compose -f $COMPOSE_FILE stop $AUX_SERVICES
     exit 0
     ;;
-  "")
-   print_help $1
-   ;;
 esac
 
 docker-compose -f $COMPOSE_FILE $@
