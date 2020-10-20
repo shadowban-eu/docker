@@ -74,9 +74,6 @@ if [[ $1 =~ ^(dev|down|init|mkcert|-h)$ ]]; then
   echo "Command: $1"
   COMMAND=$1
   shift 1
-else
-  echo -e "${COLOR_FG_RED}Invalid command $1$COLOR_RESET" >&2
-  print_help
 fi
 
 while getopts ":g:gh" opt $@; do
