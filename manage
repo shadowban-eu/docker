@@ -12,21 +12,18 @@ COMPOSE_FILE="docker-compose.yml"
 PACKAGE_MANAGER="npm"
 PACKAGE_MANGER_INSTALL_CMD="npm i"
 
+# no trailing / !
+REPO_REMOTE_BASE="https://github.com/shadowban-eu"
+
 TESTING_REPO_PATH="../shadowban-testing"
 TESTING_REPO_GIT_DIR="$TESTING_REPO_PATH/.git"
-TESTING_REPO_REMOTE="git.local:shadowban.eu/shadowban-testing.git"
-#TESTING_REPO_REMOTE="https://github.com/rbeer/iwdsync-backend.git"
 
 TIMELINE_TERMINATION_REPO_PATH="../timeline-termination"
 TIMELINE_TERMINATION_REPO_GIT_DIR="$TIMELINE_TERMINATION_REPO_PATH/.git"
-TIMELINE_TERMINATION_REPO_REMOTE="git.local:shadowban.eu/timeline-termination.git"
-#TIMELINE_TERMINATION_REPO_REMOTE="https://github.com/rbeer/iwdsync-backend.git"
 
 PWA_REPO_PATH="../pwa"
 PWA_REPO_GIT_DIR="$PWA_REPO_PATH/.git"
-PWA_REPO_REMOTE="pwa"
-PWA_REPO_REMOTE="git.local:shadowban.eu/pwa.git"
-#PWA_REPO_REMOTE="https://github.com/rbeer/iwdsync.git"
+
 # branch to check out when cloning TESTING and PWA
 GIT_BRANCH="master"
 
@@ -51,28 +48,46 @@ COLOR_RESET="\e[0m"
 function print_help {
   echo "Usage: ./manage [init|mkcert <domain>|*] [-h]"
   echo -e "Setup and manage shadowban.eu development docker containers\n"
-  echo -e "Depends: docker >=18.0.9, docker-compose >=1.25, mkcert\n"
+  echo "Depends:"
+  echo -e "  docker >=18.0.9, docker-compose >=1.25, [mkcert]\n"
 
   if [ -n "$1" ]; then
     echo -e "$COLOR_FG_YELLOW--- Invalid option: -$1 ---$COLOR_RESET\n"
-  else
-    echo -e "If you want to see the docker-compose help, use './manage help'\n"
   fi
 
+  echo "Managing commands:"
   echo "  init              Clones all services, builds images,"
   echo "                    sets up SSL, etc."
-  echo "  dev [service]     Run [service] in foreground and all other services detached."
-  echo "  mkcert <domain>   Creates a new SSL key pair for <domain>"
-  echo -e "  *                 All other arguments are passed to docker-compose\n"
+  echo "  dev <service>     Run <service> in foreground and all other services detached."
+  echo -e "  mkcert <domain>   Creates a new SSL key pair for <domain>\n"
+  echo "Managing options:"
+  echo "  -g <uri>          Base URI for repositories to clone from"
+  echo "                    e.g. https://github.com/shadowban-eu/"
   echo -e "  -h                You're looking at it.\n"
+  echo "  *                 All other arguments are passed to docker-compose"
+  echo -e "                    e.g. './manage help' to see the docker-compose help\n"
 
   exit
 }
 
-while getopts ":h" opt; do
+if [[ $1 =~ ^(init|dev|down|-h)$ ]]; then
+  echo "Command: $1"
+  COMMAND=$1
+  shift 1
+else
+  echo -e "${COLOR_FG_RED}Invalid command $1$COLOR_RESET" >&2
+  print_help
+fi
+
+while getopts ":g:gh" opt $@; do
   case $opt in
     \?)
       print_help $OPTARG
+      ;;
+    g)
+      [ "$OPTARG" == "" ] && print_help "g needs a <uri> paramter"
+      echo "Option: -g $OPTARG"
+      REPO_REMOTE_BASE="$OPTARG"
       ;;
     h)
       print_help
@@ -80,8 +95,13 @@ while getopts ":h" opt; do
   esac
 done
 
+# keep after getops; could be changed by -g
+TESTING_REPO_REMOTE="$REPO_REMOTE_BASE/shadowban-testing.git"
+TIMELINE_TERMINATION_REPO_REMOTE="$REPO_REMOTE_BASE/timeline-termination.git"
+PWA_REPO_REMOTE="$REPO_REMOTE_BASE/pwa.git"
+
 function print_init_steps {
-  echo "--- shadowban.eu docker development setup ---"
+  echo -e "\n--- shadowban.eu docker development setup ---"
   echo "This script will"
   echo "  1. Clone the TESTING service ($GIT_BRANCH branch) to $TESTING_REPO_PATH"
   echo "  2. Install the TIMELINE_TERMINATION service ($GIT_BRANCH branch) to $TIMELINE_TERMINATION_REPO_PATH"
@@ -306,7 +326,7 @@ function up_d_services {
 ###
 check_docker_daemon
 
-case "$1" in
+case "$COMMAND" in
   "mkcert")
     [ "$2" == "" ] && echo "Please provide a domain name for the certificate!" && exit 1
     make_certificate $2
