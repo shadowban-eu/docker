@@ -70,7 +70,7 @@ function print_help {
   exit
 }
 
-if [[ $1 =~ ^(init|dev|down|-h)$ ]]; then
+if [[ $1 =~ ^(dev|down|init|mkcert|-h)$ ]]; then
   echo "Command: $1"
   COMMAND=$1
   shift 1
@@ -369,7 +369,7 @@ case "$COMMAND" in
     echo -e "\nRemember to point $CERT_DOMAIN to 127.0.0.1 in your DNS or hosts file!\n"
     echo -e "Use './manage up [testing|pwa]' to start the shadowban-testing dev server."
     echo -e "Then './manage up pwa' to start the React dev server; https://shadowban.dev/\n"
-    echo "Both dev servers reload on file changes in their respective repository:"
+    echo "Dev servers reload on file changes in their respective repository:"
     echo "  pwa: $PWA_REPO_PATH"
     echo "  timeline-termination: $TIMELINE_TERMINATION_REPO_PATH"
     echo "  testing: $TESTING_REPO_PATH"
@@ -379,7 +379,7 @@ case "$COMMAND" in
     echo "The 'down' command stops and destroys all containers. THIS WILL WIPE YOUR DATABASE."
     echo "If you just want to stop the services, abort here and use ./manage stop <services>!"
     read -p "Proceed with destroying all containers? [y/N] " CONTINUE_DOWN
-    if [ "$CONTINUE_DOWN" != "y" ]; then exit 0; fi
+    [ "$CONTINUE_DOWN" != "y" ] && exit 0
     ;;
   "dev")
     FOREGROUND_SERVICE="$2"
