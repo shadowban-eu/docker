@@ -369,7 +369,7 @@ case "$COMMAND" in
     #up_d_services "$AUX_SERVICES"
 
     print_banner "\\\0/" "${COLOR_FG_GREEN}Done"
-    echo -e "\nRemember to point $CERT_DOMAIN to 127.0.0.1 in your DNS or hosts file!\n"
+    echo -e "\nRemember to point $CERT_DOMAIN and test.$CERT_DOMAIN to 127.0.0.1 in your DNS or hosts file!\n"
     echo -e "Use './manage up [testing|pwa]' to start the shadowban-testing dev server."
     echo -e "Then './manage up pwa' to start the React dev server; https://shadowban.dev/\n"
     echo "Dev servers reload on file changes in their respective repository:"
