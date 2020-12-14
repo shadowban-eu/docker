@@ -26,14 +26,14 @@ nginx (`www`), frontend (`pwa`) and shadowban-testing (`testing`) containers.
 | ports | 127.0.0.1:80:80 (http)<br>127.0.0.1:443:443 (https) |
 | config | www/nginx.conf<br>www/sites-/\*<br>www/ssl/\*\*/(key\|cert).pem |
 | logs | ./logs/nginx/ |
-| **shadowban-testing** |  |
+| [**shadowban-testing**](https://github.com/shadowban-eu/shadowban-testing) |  |
 | image | ../shadowban-testing/. (python:3.5.7-slim-buster) |
 | config | ./env/testing.env |
 | logs | ./logs/shadowban-testing/ |
-| **shadowban-pwa** |  |
+| **shadowban-[pwa](https://github.com/shadowban-eu/pwa)** |  |
 | image | ../pwa/. (node:slim) |
 | config | ./env/pwa.env |
-| **shadowban-timeline-termination**| |
+| **shadowban-[timeline-termination](https://github.com/shadowban-eu/timeline-termination)**| |
 | image | ../timeline-termination/. (node:slime) |
 | config | ./env/timeline-termination.env |
 | logs | ./logs/timeline-termination/ |
