@@ -3,6 +3,12 @@
 ***Quickstart:***
 *[Install mkcert](https://github.com/FiloSottile/mkcert#installation), [node.js](https://nodejs.org/en/download/) and run `./manage init`*
 
+```bash
+$ mkdir shadowban-eu; cd $_
+$ git clone https://github.com/shadowban-eu/docker ./docker; cd $_
+$ ./manage init
+```
+
 Windows users, please install a bash shell! The emulation of [git for windows](https://gitforwindows.org/) works fine.
 
 ---
@@ -171,3 +177,8 @@ use to sign the certificates for domains - is now in the list, named "org-mkcert
 From now on, all certificates generated with mkcert are accepted by your browser.
 
 Also have a look at the [advanced topics](https://github.com/FiloSottile/mkcert#advanced-topics) in the mkcert README!
+
+### Known Issues
+
+#### net::ERR_BLOCKED_BY_CLIENT
+If, despite the browser seeing a valid certificate, the page is blank and all other requests are blocked with a `net::ERR_BLOCKED_BY_CLIENT` error, try disabling all ad blocking extensions! Brave's built-in "Shields" for example blocks everything.
