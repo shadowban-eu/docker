@@ -27,7 +27,7 @@ nginx (`www`), frontend (`pwa`) and `testing` containers.
 | config | www/nginx.conf<br>www/sites-/\*<br>www/ssl/\*\*/(key\|cert).pem |
 | logs | ./logs/nginx/ |
 | **shadowban-[testing](https://github.com/shadowban-eu/testing)** |  |
-| image | ../testing/. (python:3.5.7-slim-buster) |
+| image | ../testing/. (python:3.7-slim-buster) |
 | config | ./env/testing.env |
 | logs | ./logs/testing/ |
 | **shadowban-[pwa](https://github.com/shadowban-eu/pwa)** |  |
