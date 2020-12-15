@@ -33,16 +33,16 @@ services:
       - common
 
   testing:
-    build: ../shadowban-testing/.
+    build: ../testing/.
     container_name: shadowban-testing
     hostname: shadowban-testing
-    command: ./docker-entry.sh
+    command: ./bin/docker-entry.sh
     stdin_open: true
     expose:
       - "4040"
     volumes:
-      - ../shadowban-testing:/app
-      - ./logs/shadowban-testing:/app/logs
+      - ../testing:/app
+      - ./logs/testing:/app/logs
     env_file:
       - ./env/testing.env
     depends_on:

@@ -15,7 +15,7 @@ PACKAGE_MANGER_INSTALL_CMD="npm i"
 # no trailing / !
 REPO_REMOTE_BASE="https://github.com/shadowban-eu"
 
-TESTING_REPO_PATH="../shadowban-testing"
+TESTING_REPO_PATH="../testing"
 TESTING_REPO_GIT_DIR="$TESTING_REPO_PATH/.git"
 
 TIMELINE_TERMINATION_REPO_PATH="../timeline-termination"
@@ -112,7 +112,7 @@ while getopts "b:hg:g" opt; do
 done
 
 # keep after getops; could be changed by -g
-TESTING_REPO_REMOTE="$REPO_REMOTE_BASE/shadowban-testing.git"
+TESTING_REPO_REMOTE="$REPO_REMOTE_BASE/testing.git"
 TIMELINE_TERMINATION_REPO_REMOTE="$REPO_REMOTE_BASE/timeline-termination.git"
 PWA_REPO_REMOTE="$REPO_REMOTE_BASE/pwa.git"
 
@@ -383,7 +383,7 @@ case "$COMMAND" in
 
     print_banner "\\\0/" "${COLOR_FG_GREEN}Done"
     echo -e "\nRemember to point $CERT_DOMAIN and test.$CERT_DOMAIN to 127.0.0.1 in your DNS or hosts file!\n"
-    echo -e "Use './manage up [testing|pwa]' to start the shadowban-testing dev server."
+    echo -e "Run './manage up testing' to start the testing dev server."
     echo -e "Then './manage up pwa' to start the React dev server; https://shadowban.dev/\n"
     echo "Dev servers reload on file changes in their respective repository:"
     echo "  pwa: $PWA_REPO_PATH"

@@ -14,7 +14,7 @@ Windows users, please install a bash shell! The emulation of [git for windows](h
 ---
 The compose file `./docker-compose.yml` creates a
 network (`shadowban-dev_common`) with mongo (`db`),
-nginx (`www`), frontend (`pwa`) and shadowban-testing (`testing`) containers.
+nginx (`www`), frontend (`pwa`) and `testing` containers.
 
 | host: shadowban-db | |
 |-:|-|
@@ -26,10 +26,10 @@ nginx (`www`), frontend (`pwa`) and shadowban-testing (`testing`) containers.
 | ports | 127.0.0.1:80:80 (http)<br>127.0.0.1:443:443 (https) |
 | config | www/nginx.conf<br>www/sites-/\*<br>www/ssl/\*\*/(key\|cert).pem |
 | logs | ./logs/nginx/ |
-| [**shadowban-testing**](https://github.com/shadowban-eu/shadowban-testing) |  |
-| image | ../shadowban-testing/. (python:3.5.7-slim-buster) |
+| **shadowban-[testing](https://github.com/shadowban-eu/testing)** |  |
+| image | ../testing/. (python:3.5.7-slim-buster) |
 | config | ./env/testing.env |
-| logs | ./logs/shadowban-testing/ |
+| logs | ./logs/testing/ |
 | **shadowban-[pwa](https://github.com/shadowban-eu/pwa)** |  |
 | image | ../pwa/. (node:slim) |
 | config | ./env/pwa.env |
