@@ -45,6 +45,7 @@ COLOR_FG_YELLOW="\e[1;49;33m"
 COLOR_FG_GREEN="\e[1;49;32m"
 COLOR_RESET="\e[0m"
 
+PRODUCTION=0
 SKIP_INIT_STEPS=0
 
 # prevent changes to .env files from being added to git
@@ -120,6 +121,7 @@ while getopts ":b:hg:py" opt; do
     p)
       echo "Option: -p --- PRODUCTION MODE ---"
       COMPOSE_FILE="docker-compose.production.yml"
+      PRODUCTION=1
       ;;
     y)
       echo "Option: -y - Skipping init steps"
@@ -378,28 +380,33 @@ case "$COMMAND" in
     check_docker_version
     check_docker_compose_version
 
-    print_banner "?" "Checking for YARN or NPM"
-    check_package_manager
+    if [ $PRODUCTION -ne 1 ]; then
+      print_banner "?" "Checking for YARN or NPM"
+      check_package_manager
+    fi
 
     print_banner "1" "Cloning TESTING"
     init_repo $TESTING_REPO_PATH $TESTING_REPO_REMOTE
 
     print_banner "2" "Installing TIMELINE_TERMINATION"
     init_repo $TIMELINE_TERMINATION_REPO_PATH $TIMELINE_TERMINATION_REPO_REMOTE
-    install_node_packages $TIMELINE_TERMINATION_REPO_PATH
+    if [ $PRODUCTION -ne 1 ]; then
+      install_node_packages $TIMELINE_TERMINATION_REPO_PATH
+    fi
 
     print_banner "3" "Installing PWA"
     init_repo $PWA_REPO_PATH $PWA_REPO_REMOTE
-    install_node_packages $PWA_REPO_PATH
+    if [ $PRODUCTION -ne 1 ]; then
+      install_node_packages $PWA_REPO_PATH
+    fi
 
     print_banner "4" "Building images"
     build_images
 
-    print_banner "5" "Creating SSL certificate for $CERT_DOMAIN"
-    make_certificate $CERT_DOMAIN "init"
-
-    #print_banner "~" "Bringing up auxiliary services ($AUX_SERVICES)"
-    #up_d_services "$AUX_SERVICES"
+    if [ $PRODUCTION -ne 1 ]; then
+      print_banner "5" "Creating SSL certificate for $CERT_DOMAIN"
+      make_certificate $CERT_DOMAIN "init"
+    fi
 
     print_banner "\\\0/" "${COLOR_FG_GREEN}Done"
     echo -e "\nRemember to point $CERT_DOMAIN and test.$CERT_DOMAIN to 127.0.0.1 in your DNS or hosts file!\n"
