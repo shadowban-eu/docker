@@ -45,6 +45,11 @@ COLOR_FG_YELLOW="\e[1;49;33m"
 COLOR_FG_GREEN="\e[1;49;32m"
 COLOR_RESET="\e[0m"
 
+SKIP_INIT_STEPS=0
+
+# prevent changes to .env files from being added to git
+git update-index --skip-worktree env/*
+
 function read_env {
   while IFS='=' read -r name value; do
      if [ -z "$value" -o -z "$name" ]; then
@@ -58,7 +63,7 @@ function read_env {
 }
 
 function print_help {
-  echo "Usage: ./manage [db|dev <service>|init|mkcert <domain>|*] [-b <branch>] [-d <uri>] [-h]"
+  echo "Usage: ./manage [db|dev <service>|init|mkcert <domain>|*] [-b <branch>] [-g <uri>] [-h] [-p]"
   echo -e "Setup and manage shadowban.eu development docker containers\n"
   echo "Depends:"
   echo -e "  docker >=18.0.9, docker-compose >=1.25, [mkcert]\n"
@@ -74,39 +79,54 @@ function print_help {
   echo "  dev <service>     Run <service> in foreground and all other services detached."
   echo -e "  mkcert <domain>   Creates a new SSL cert/key pair for <domain>\n"
   echo "Managing options:"
+  echo "  -b <branch>       Branch name to check out; default: master"
   echo "  -g <uri>          Base URI for repositories to clone from"
   echo "                    e.g. https://github.com/shadowban-eu/"
-  echo "  -b <branch>       Branch name to check out; default: master"
-  echo -e "  -h                You're looking at it.\n"
+  echo "  -p                Run in production mode"
+  echo "  -y                Skip init steps and confirmation"
   echo "Other:"
+  echo "  -h                You're looking at it."
   echo "  *                 All other arguments are passed to docker-compose"
-  echo -e "                    e.g. './manage help' to see the docker-compose help\n"
+  echo "                    e.g. './manage help' to see the docker-compose help"
 
   exit
 }
 
-if [[ $1 =~ ^(db|dev|down|init|mkcert)$ ]]; then
-  echo "Command: $1"
-  COMMAND=$1
-  shift 1
+if [[ ${#} -eq 0 ]]; then
+  print_help
 fi
 
-while getopts "b:hg:g" opt; do
+if [[ "$1" =~ ^(db|dev|down|init|mkcert)$ ]]; then
+  COMMAND=$1
+  shift
+  echo "Command: $COMMAND"
+fi
+
+while getopts ":b:hg:py" opt; do
   case $opt in
-    g)
-      [ "$COMMAND" == "" ] && print_help "g must be used in combination with a managing command"
-      [ "$OPTARG" == "" ] && print_help "g needs a <uri> paramter"
-      echo "Option: -g REPO_REMOTE_BASE=$OPTARG"
-      REPO_REMOTE_BASE="$OPTARG"
-      ;;
     b)
-      [ "$COMMAND" == "" ] && print_help "b must be used in combination with a managing command"
       [ "$OPTARG" == "" ] && print_help "b needs a <branch> parameter"
       echo "Option: -b GIT_BRANCH=$OPTARG"
       GIT_BRANCH="$OPTARG"
       ;;
+    g)
+      [ "$OPTARG" == "" ] && print_help "g needs a <uri> paramter"
+      echo "Option: -g REPO_REMOTE_BASE=$OPTARG"
+      REPO_REMOTE_BASE="$OPTARG"
+      ;;
     h)
       print_help
+      ;;
+    p)
+      echo "Option: -p --- PRODUCTION MODE ---"
+      COMPOSE_FILE="docker-compose.production.yml"
+      ;;
+    y)
+      echo "Option: -y - Skipping init steps"
+      SKIP_INIT_STEPS=1
+      ;;
+    ?)
+      print_help $OPTARG
       ;;
   esac
 done
@@ -117,7 +137,7 @@ TIMELINE_TERMINATION_REPO_REMOTE="$REPO_REMOTE_BASE/timeline-termination.git"
 PWA_REPO_REMOTE="$REPO_REMOTE_BASE/pwa.git"
 
 function print_init_steps {
-  echo -e "\n--- shadowban.eu docker development setup ---"
+  echo -e "\n--- shadowban.eu docker setup ---"
   echo "This script will"
   echo "  1. Clone the TESTING service ($GIT_BRANCH branch) to $TESTING_REPO_PATH"
   echo "  2. Install the TIMELINE_TERMINATION service ($GIT_BRANCH branch) to $TIMELINE_TERMINATION_REPO_PATH"
@@ -349,7 +369,7 @@ case "$COMMAND" in
     exit 0
     ;;
   "init")
-    print_init_steps
+    [ $SKIP_INIT_STEPS -ne 1 ] && print_init_steps
 
     print_banner "?" "Checking parent directory"
     check_empty_parent
