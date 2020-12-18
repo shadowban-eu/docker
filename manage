@@ -78,11 +78,14 @@ function print_help {
   echo "                    sets up SSL, etc."
   echo "  db                Open authenticated shell in db container"
   echo "  dev <service>     Run <service> in foreground and all other services detached."
-  echo -e "  mkcert <domain>   Creates a new SSL cert/key pair for <domain>\n"
+  echo -e "  mkcert -c <domain>   Creates a new SSL cert/key pair for <domain>\n"
   echo "Managing options:"
   echo "  -b <branch>       Branch name to check out; default: master"
+  echo -e "                    (commands: init; default: master)\n"
+  echo "  -c <domain>       Domain for SSL certificate"
+  echo -e "                    (commands: mkcert, init; default: shadowban.dev)\n"
   echo "  -g <uri>          Base URI for repositories to clone from"
-  echo "                    e.g. https://github.com/shadowban-eu/"
+  echo -e "                    (commands: init; default: https://github.com/shadowban-eu/)\n"
   echo "  -p                Run in production mode"
   echo "  -y                Skip init steps and confirmation"
   echo "Other:"
@@ -103,12 +106,17 @@ if [[ "$1" =~ ^(db|dev|down|init|mkcert)$ ]]; then
   echo "Command: $COMMAND"
 fi
 
-while getopts ":b:hg:py" opt; do
+while getopts ":b:c:hg:py" opt; do
   case $opt in
     b)
       [ "$OPTARG" == "" ] && print_help "b needs a <branch> parameter"
       echo "Option: -b GIT_BRANCH=$OPTARG"
       GIT_BRANCH="$OPTARG"
+      ;;
+    c)
+      [ "$OPTARG" == "" ] && print_help "b needs a <branch> parameter"
+      echo "Option: -c CERT_DOMAIN=$OPTARG"
+      CERT_DOMAIN=$OPTARG
       ;;
     g)
       [ "$OPTARG" == "" ] && print_help "g needs a <uri> paramter"
@@ -403,10 +411,8 @@ case "$COMMAND" in
     print_banner "4" "Building images"
     build_images
 
-    if [ $PRODUCTION -ne 1 ]; then
-      print_banner "5" "Creating SSL certificate for $CERT_DOMAIN"
-      make_certificate $CERT_DOMAIN "init"
-    fi
+    print_banner "5" "Creating SSL certificate for $CERT_DOMAIN"
+    make_certificate $CERT_DOMAIN "init"
 
     print_banner "\\\0/" "${COLOR_FG_GREEN}Done"
     echo -e "\nRemember to point $CERT_DOMAIN and test.$CERT_DOMAIN to 127.0.0.1 in your DNS or hosts file!\n"
