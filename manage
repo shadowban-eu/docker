@@ -128,8 +128,9 @@ while getopts ":b:c:hg:py" opt; do
       ;;
     p)
       echo "Option: -p --- PRODUCTION MODE ---"
-      COMPOSE_FILE="docker-compose.production.yml"
       PRODUCTION=1
+      COMPOSE_FILE="docker-compose.production.yml"
+      BUILD_IMAGE_FOR="www testing"
       ;;
     y)
       echo "Option: -y - Skipping init steps"
@@ -139,6 +140,7 @@ while getopts ":b:c:hg:py" opt; do
       print_help $OPTARG
       ;;
   esac
+  shift $((OPTIND-1))
 done
 
 # keep after getops; could be changed by -g
@@ -150,7 +152,8 @@ function print_init_steps {
   echo -e "\n--- shadowban.eu docker setup ---"
   echo "This script will"
   echo "  1. Clone the TESTING service ($GIT_BRANCH branch) to $TESTING_REPO_PATH"
-  echo "  2. Install the TIMELINE_TERMINATION service ($GIT_BRANCH branch) to $TIMELINE_TERMINATION_REPO_PATH"
+  [ $PRODUCTION -ne 1 ] && \
+    echo "  2. Install the TIMELINE_TERMINATION service ($GIT_BRANCH branch) to $TIMELINE_TERMINATION_REPO_PATH"
   echo "  3. Install the PWA ($GIT_BRANCH branch) to $PWA_REPO_PATH"
   echo "  4. Build images ($BUILD_IMAGE_FOR)"
   echo "  5. Create the certificate for $CERT_DOMAIN (requires mkcert)"
@@ -388,25 +391,21 @@ case "$COMMAND" in
     check_docker_version
     check_docker_compose_version
 
-    if [ $PRODUCTION -ne 1 ]; then
-      print_banner "?" "Checking for YARN or NPM"
-      check_package_manager
-    fi
+    print_banner "?" "Checking for YARN or NPM"
+    check_package_manager
 
     print_banner "1" "Cloning TESTING"
     init_repo $TESTING_REPO_PATH $TESTING_REPO_REMOTE
 
-    print_banner "2" "Installing TIMELINE_TERMINATION"
-    init_repo $TIMELINE_TERMINATION_REPO_PATH $TIMELINE_TERMINATION_REPO_REMOTE
     if [ $PRODUCTION -ne 1 ]; then
+      print_banner "2" "Installing TIMELINE_TERMINATION"
+      init_repo $TIMELINE_TERMINATION_REPO_PATH $TIMELINE_TERMINATION_REPO_REMOTE
       install_node_packages $TIMELINE_TERMINATION_REPO_PATH
     fi
 
     print_banner "3" "Installing PWA"
     init_repo $PWA_REPO_PATH $PWA_REPO_REMOTE
-    if [ $PRODUCTION -ne 1 ]; then
-      install_node_packages $PWA_REPO_PATH
-    fi
+    install_node_packages $PWA_REPO_PATH
 
     print_banner "4" "Building images"
     build_images

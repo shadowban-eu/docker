@@ -48,40 +48,6 @@ services:
     networks:
       - common
 
-  timeline-termination:
-    build: ../timeline-termination/.
-    container_name: shadowban-timeline-termination
-    hostname: shadowban-timeline-termination
-    command: yarn dev
-    expose:
-      - "3300"
-    volumes:
-      - ../timeline-termination:/app
-      - ./logs/timeline-termination:/app/logs
-    env_file:
-      - ./env/timeline-termination.env
-    depends_on:
-      - db
-      - www
-    networks:
-      - common
-
-  pwa:
-    build: ../pwa/.
-    container_name: shadowban-pwa
-    hostname: shadowban-pwa
-    command: yarn start
-    expose:
-      - "3000"
-    volumes:
-      - ../pwa:/app
-    env_file:
-      - ./env/pwa.env
-    depends_on:
-      - www
-    networks:
-      - common
-
 networks:
   common:
     name: shadowban-eu_common
