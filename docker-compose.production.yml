@@ -14,8 +14,8 @@ services:
     container_name: shadowban-www
     hostname: shadowban-www
     ports:
-      - "127.0.0.1:80:80"
-      - "127.0.0.1:443:443"
+      - "${PUBLIC_IP}:80:80"
+      - "${PUBLIC_IP}:443:443"
     volumes:
       # main config
       - ./www/nginx.conf:/etc/nginx/nginx.conf
@@ -36,9 +36,8 @@ services:
     hostname: shadowban-testing
     command: ./bin/docker-entry.sh
     expose:
-      - "4040"
+      - "${TESTING_PORT}"
     volumes:
-      - ../testing:/app
       - ./logs/testing:/app/logs
     env_file:
       - ./env/testing.env
