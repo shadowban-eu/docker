@@ -140,7 +140,7 @@ while getopts ":b:c:hg:py" opt; do
       print_help $OPTARG
       ;;
   esac
-  shift $((OPTIND-1))
+  [ -z "$COMMAND" ] && shift
 done
 
 # keep after getops; could be changed by -g
