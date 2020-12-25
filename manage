@@ -130,7 +130,7 @@ while getopts ":b:c:hg:py" opt; do
       echo "Option: -p --- PRODUCTION MODE ---"
       PRODUCTION=1
       COMPOSE_FILE="docker-compose.production.yml"
-      BUILD_IMAGE_FOR="www testing"
+      BUILD_IMAGE_FOR="www"
       ;;
     y)
       echo "Option: -y - Skipping init steps"
@@ -403,15 +403,19 @@ case "$COMMAND" in
       install_node_packages $TIMELINE_TERMINATION_REPO_PATH
     fi
 
-    print_banner "3" "Installing PWA"
-    init_repo $PWA_REPO_PATH $PWA_REPO_REMOTE
-    install_node_packages $PWA_REPO_PATH
+    if [ $PRODUCTION -ne 1 ]; then
+      print_banner "3" "Installing PWA"
+      init_repo $PWA_REPO_PATH $PWA_REPO_REMOTE
+      install_node_packages $PWA_REPO_PATH
+    fi
 
     print_banner "4" "Building images"
     build_images
 
-    print_banner "5" "Creating SSL certificate for $CERT_DOMAIN"
-    make_certificate $CERT_DOMAIN "init"
+    if [ $PRODUCTION -ne 1 ]; then
+      print_banner "5" "Creating SSL certificate for $CERT_DOMAIN"
+      make_certificate $CERT_DOMAIN "init"
+    fi
 
     print_banner "\\\0/" "${COLOR_FG_GREEN}Done"
     echo -e "\nRemember to point $CERT_DOMAIN and test.$CERT_DOMAIN to 127.0.0.1 in your DNS or hosts file!\n"
